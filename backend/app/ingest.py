@@ -2,11 +2,12 @@ import hashlib
 import json
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chunking import chunk_markdown
 from app.config import settings
-from app.models import Source
+from app.models import Chunk, Source
 
 
 def _checksum(text: str) -> str:
@@ -41,6 +42,22 @@ def _load_index(root: Path) -> dict:
     return by_path
 
 
+async def _replace_chunks(db: AsyncSession, source: Source) -> int:
+    await db.execute(delete(Chunk).where(Chunk.source_id == source.id))
+    pieces = chunk_markdown(source.content)
+    for i, piece in enumerate(pieces):
+        db.add(
+            Chunk(
+                source_id=source.id,
+                ordinal=i,
+                heading=piece["heading"],
+                content=piece["content"],
+                token_count=piece["token_count"],
+            )
+        )
+    return len(pieces)
+
+
 async def ingest_sources(db: AsyncSession) -> dict:
     root = Path(settings.data_dir)
     if not root.exists():
@@ -48,6 +65,7 @@ async def ingest_sources(db: AsyncSession) -> dict:
 
     index = _load_index(root)
     ingested = updated = skipped = 0
+    chunks_written = 0
 
     for path in sorted(root.rglob("*.md")):
         relative = path.relative_to(root).as_posix()
@@ -57,7 +75,15 @@ async def ingest_sources(db: AsyncSession) -> dict:
 
         existing = await db.scalar(select(Source).where(Source.path == relative))
         if existing and existing.checksum == checksum:
-            skipped += 1
+            chunk_count = await db.scalar(
+                select(func.count()).select_from(Chunk).where(Chunk.source_id == existing.id)
+            )
+            if chunk_count:
+                skipped += 1
+                continue
+            await db.flush()
+            chunks_written += await _replace_chunks(db, existing)
+            updated += 1
             continue
 
         title = meta.get("title") or _title_from_markdown(path, text)
@@ -70,19 +96,28 @@ async def ingest_sources(db: AsyncSession) -> dict:
             existing.source_type = source_type
             existing.checksum = checksum
             existing.content = text
+            source = existing
             updated += 1
         else:
-            db.add(
-                Source(
-                    source_type=source_type,
-                    title=title,
-                    guest=guest,
-                    path=relative,
-                    checksum=checksum,
-                    content=text,
-                )
+            source = Source(
+                source_type=source_type,
+                title=title,
+                guest=guest,
+                path=relative,
+                checksum=checksum,
+                content=text,
             )
+            db.add(source)
             ingested += 1
 
+        await db.flush()
+        chunks_written += await _replace_chunks(db, source)
+
     await db.commit()
-    return {"ingested": ingested, "updated": updated, "skipped": skipped, "data_dir": str(root)}
+    return {
+        "ingested": ingested,
+        "updated": updated,
+        "skipped": skipped,
+        "chunks": chunks_written,
+        "data_dir": str(root),
+    }

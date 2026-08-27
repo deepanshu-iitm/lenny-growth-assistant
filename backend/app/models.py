@@ -91,3 +91,23 @@ class Source(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="source", cascade="all, delete-orphan"
+    )
+
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE")
+    )
+    ordinal: Mapped[int]
+    heading: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    content: Mapped[str] = mapped_column(Text)
+    token_count: Mapped[int]
+    source: Mapped[Source] = relationship(back_populates="chunks")
+
