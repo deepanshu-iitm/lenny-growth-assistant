@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db import DEMO_USER_ID, get_db
 from app.models import ChatSession, Message
+from app.retrieval import answer_from_hits, search_chunks
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -42,6 +43,11 @@ class SessionCreate(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str
+
+
+class MessageReply(BaseModel):
+    user: MessageOut
+    assistant: MessageOut
 
 
 async def _get_owned_session(
@@ -86,18 +92,29 @@ async def get_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_db))
     return session
 
 
-@router.post("/{session_id}/messages", response_model=MessageOut, status_code=201)
+@router.post("/{session_id}/messages", response_model=MessageReply, status_code=201)
 async def add_message(
     session_id: uuid.UUID,
     body: MessageCreate,
     db: AsyncSession = Depends(get_db),
 ):
     session = await _get_owned_session(session_id, db)
-    message = Message(session_id=session.id, role="user", content=body.content.strip())
-    if not message.content:
+    content = body.content.strip()
+    if not content:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    user_message = Message(session_id=session.id, role="user", content=content)
+    hits = await search_chunks(db, content)
+    answer, citations = answer_from_hits(hits)
+    assistant_message = Message(
+        session_id=session.id,
+        role="assistant",
+        content=answer,
+        citations=citations,
+    )
     session.updated_at = datetime.now(timezone.utc)
-    db.add(message)
+    db.add_all([user_message, assistant_message])
     await db.commit()
-    await db.refresh(message)
-    return message
+    await db.refresh(user_message)
+    await db.refresh(assistant_message)
+    return MessageReply(user=user_message, assistant=assistant_message)
