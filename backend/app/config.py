@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -7,6 +11,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://lenny:lenny@127.0.0.1:5433/lenny"
     demo_user_id: str = "00000000-0000-0000-0000-000000000001"
     demo_user_name: str = "Growth Team"
+    data_dir: str = str(REPO_ROOT / "data" / "sample")
 
 
 settings = Settings()
