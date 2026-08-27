@@ -1,9 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from app.db import ping_db
+from app.db import init_db, ping_db
+from app.sessions import router as sessions_router
 
-app = FastAPI(title="Lenny Growth Assistant")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="Lenny Growth Assistant", lifespan=lifespan)
+app.include_router(sessions_router)
 
 
 @app.get("/health")
