@@ -15,9 +15,13 @@ def health():
 async def ready():
     try:
         await ping_db()
-    except Exception:
+    except Exception as exc:
         return JSONResponse(
             status_code=503,
-            content={"status": "not_ready", "database": "down"},
+            content={
+                "status": "not_ready",
+                "database": "down",
+                "error": str(exc),
+            },
         )
     return {"status": "ok", "database": "up"}
