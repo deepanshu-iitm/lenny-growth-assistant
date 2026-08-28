@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import httpx
 
 from app.config import settings
@@ -42,20 +44,25 @@ async def _ollama(prompt: str) -> str | None:
         return text.strip() or None
 
 
-async def _openai(prompt: str) -> str | None:
+async def _openai(
+    prompt: str, temperature: float = 0.2, max_tokens: int | None = None
+) -> str | None:
     key = settings.openai_api_key.strip()
     if not key:
         return None
     url = settings.openai_base_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": settings.openai_model,
+        "temperature": temperature,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
     async with httpx.AsyncClient(timeout=settings.llm_timeout_seconds) as client:
         res = await client.post(
             url,
             headers={"Authorization": f"Bearer {key}"},
-            json={
-                "model": settings.openai_model,
-                "temperature": 0.2,
-                "messages": [{"role": "user", "content": prompt}],
-            },
+            json=payload,
         )
         res.raise_for_status()
         data = res.json()
@@ -64,15 +71,38 @@ async def _openai(prompt: str) -> str | None:
         return text.strip() or None
 
 
-async def write_grounded_answer(question: str, hits: list[Chunk]) -> str | None:
-    if not hits:
-        return None
-    prompt = _user_prompt(question, hits)
+async def complete(
+    prompt: str, temperature: float = 0.2, max_tokens: int | None = None
+) -> str | None:
     try:
         if settings.llm_provider == "openai":
-            return await _openai(prompt)
+            return await _openai(prompt, temperature=temperature, max_tokens=max_tokens)
         if settings.llm_provider == "ollama":
             return await _ollama(prompt)
     except Exception:
         return None
     return None
+
+
+async def write_grounded_answer(question: str, hits: list[Chunk]) -> str | None:
+    if not hits:
+        return None
+    return await complete(_user_prompt(question, hits))
+
+
+def load_skill(name: str) -> str:
+    path = Path(settings.skills_dir) / name / "SKILL.md"
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+async def write_ship30_essay(topic: str, hits: list[Chunk]) -> str | None:
+    if not hits:
+        return None
+    skill = load_skill("ship30")
+    prompt = (
+        f"{skill}\n\n---\n\nTranscript excerpts:\n{_context(hits)}\n\n"
+        f"Write the essay on: {topic}\n"
+    )
+    return await complete(prompt, temperature=0.4, max_tokens=2800)

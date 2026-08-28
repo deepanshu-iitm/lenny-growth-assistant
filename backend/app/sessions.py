@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import DEMO_USER_ID, get_db
-from app.llm import write_grounded_answer
+from app.essay import topic_query, wants_essay
+from app.llm import write_grounded_answer, write_ship30_essay
 from app.models import ChatSession, Message
 from app.retrieval import answer_from_hits, search_chunks
 
@@ -105,9 +106,20 @@ async def add_message(
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     user_message = Message(session_id=session.id, role="user", content=content)
-    hits = await search_chunks(db, content)
+    search_text = topic_query(content) if wants_essay(content) else content
+    hits = await search_chunks(db, search_text, limit=6 if wants_essay(content) else 4)
     fallback, citations = answer_from_hits(hits)
-    written = await write_grounded_answer(content, hits)
+    if wants_essay(content):
+        written = await write_ship30_essay(search_text, hits)
+        if written is None and hits:
+            fallback = (
+                "I couldn't reach the model to draft the Ship 30 essay. "
+                "Select OpenAI (or start Ollama) and try again. "
+                "Here is the source material I would have used:\n\n"
+                + fallback
+            )
+    else:
+        written = await write_grounded_answer(content, hits)
     assistant_message = Message(
         session_id=session.id,
         role="assistant",

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
         if (REPO_ROOT / "data" / "lenny" / "index.json").exists()
         else REPO_ROOT / "data" / "sample"
     )
+    skills_dir: str = str(REPO_ROOT / "skills")
     llm_provider: str = "ollama"
     chat_model: str = "llama3.2"
     ollama_base_url: str = "http://127.0.0.1:11434"
