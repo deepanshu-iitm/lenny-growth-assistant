@@ -1,8 +1,30 @@
 from pathlib import Path
+import json
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+RUNTIME_PATH = Path(__file__).resolve().parents[1] / ".runtime.json"
+
+
+def read_saved_provider() -> str | None:
+    if not RUNTIME_PATH.exists():
+        return None
+    try:
+        data = json.loads(RUNTIME_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    provider = data.get("llm_provider")
+    if provider in ("openai", "ollama"):
+        return provider
+    return None
+
+
+def save_provider(provider: str) -> None:
+    RUNTIME_PATH.write_text(
+        json.dumps({"llm_provider": provider}) + "\n",
+        encoding="utf-8",
+    )
 
 
 class Settings(BaseSettings):
@@ -32,3 +54,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+_saved = read_saved_provider()
+if _saved:
+    settings.llm_provider = _saved

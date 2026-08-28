@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.admin import router as admin_router
-from app.config import settings
+from app.config import save_provider, settings
 from app.db import init_db, ping_db
 from app.sessions import router as sessions_router
 
@@ -63,4 +63,5 @@ class ConfigUpdate(BaseModel):
 @app.post("/config")
 def set_config(body: ConfigUpdate):
     settings.llm_provider = body.provider
+    save_provider(body.provider)
     return _public_config()
