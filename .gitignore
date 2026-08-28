@@ -1,4 +1,3 @@
-.env
 .venv/
 venv/
 __pycache__/
@@ -11,3 +10,4 @@ dist/
 Thumbs.db
 data/lenny/
 backend/.runtime.json
+config.bat
