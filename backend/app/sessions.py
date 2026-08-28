@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.artifacts import make_artifact, title_from_html, title_from_markdown
 from app.db import DEMO_USER_ID, get_db
 from app.essay import topic_query, wants_essay, wants_html
+from app.log import log
 from app.llm import write_grounded_answer, write_html_onepager, write_ship30_essay
 from app.models import Artifact, ChatSession, Message
 from app.retrieval import (
@@ -147,6 +148,15 @@ async def add_message(
     hits = await search_chunks(db, search_text, limit=6 if special else 4)
     if special:
         hits = await chunks_from_best_source(db, hits)
+    log.info(
+        "retrieved",
+        extra={
+            "event": "retrieve",
+            "hits": len(hits),
+            "kind": "essay" if wants_essay(content) else "html" if wants_html(content) else "chat",
+            "session_id": str(session.id),
+        },
+    )
     fallback, citations = answer_from_hits(hits)
     written = None
     kind = None

@@ -3,6 +3,7 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
+from app.log import log
 from app.models import Chunk
 
 PROMPT = (
@@ -85,14 +86,47 @@ async def _openai(
 async def complete(
     prompt: str, temperature: float = 0.2, max_tokens: int | None = None
 ) -> str | None:
+    provider = settings.llm_provider
+    model = settings.active_model()
     try:
-        if settings.llm_provider == "openai":
-            return await _openai(prompt, temperature=temperature, max_tokens=max_tokens)
-        if settings.llm_provider == "ollama":
-            return await _ollama(prompt)
-    except Exception:
+        if provider == "openai":
+            if not settings.openai_api_key.strip():
+                log.warning(
+                    "openai key missing",
+                    extra={"event": "llm", "provider": provider, "model": model},
+                )
+                return None
+            text = await _openai(prompt, temperature=temperature, max_tokens=max_tokens)
+        elif provider == "ollama":
+            text = await _ollama(prompt)
+        else:
+            log.warning(
+                "unknown provider",
+                extra={"event": "llm", "provider": provider},
+            )
+            return None
+    except Exception as exc:
+        log.warning(
+            "llm failed",
+            extra={
+                "event": "llm",
+                "provider": provider,
+                "model": model,
+                "error": str(exc),
+            },
+        )
         return None
-    return None
+    if not text:
+        log.warning(
+            "llm returned empty",
+            extra={"event": "llm", "provider": provider, "model": model},
+        )
+        return None
+    log.info(
+        "llm ok",
+        extra={"event": "llm", "provider": provider, "model": model},
+    )
+    return text
 
 
 async def write_grounded_answer(

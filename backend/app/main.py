@@ -8,12 +8,15 @@ from pydantic import BaseModel, Field
 from app.admin import router as admin_router
 from app.config import save_provider, settings
 from app.db import init_db, ping_db
+from app.log import log, setup_logging
 from app.sessions import router as sessions_router
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    setup_logging()
     await init_db()
+    log.info("api started", extra={"event": "startup", "provider": settings.llm_provider})
     yield
 
 
@@ -32,6 +35,10 @@ async def ready():
     try:
         await ping_db()
     except Exception as exc:
+        log.warning(
+            "database down",
+            extra={"event": "ready", "error": str(exc)},
+        )
         return JSONResponse(
             status_code=503,
             content={
