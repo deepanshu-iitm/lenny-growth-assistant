@@ -30,8 +30,15 @@ aside {
 }
 
 .brand {
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   font-size: 1.05rem;
+}
+
+.badge {
+  margin: 0 0 16px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.75rem;
+  color: #5c564c;
 }
 
 aside > button {

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from app.admin import router as admin_router
+from app.config import settings
 from app.db import init_db, ping_db
 from app.sessions import router as sessions_router
 
@@ -38,3 +39,11 @@ async def ready():
             },
         )
     return {"status": "ok", "database": "up"}
+
+
+@app.get("/config")
+def config():
+    return {
+        "provider": settings.llm_provider,
+        "chat_model": settings.chat_model,
+    }

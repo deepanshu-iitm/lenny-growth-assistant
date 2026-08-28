@@ -26,6 +26,8 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState("ollama");
+  const [model, setModel] = useState("llama3.2");
 
   async function loadSessions() {
     try {
@@ -86,6 +88,14 @@ export default function App() {
 
   useEffect(() => {
     loadSessions();
+    fetch("/config")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setProvider(data.provider);
+        setModel(data.chat_model);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -97,6 +107,9 @@ export default function App() {
     <div className="shell">
       <aside>
         <p className="brand">Lenny Growth Assistant</p>
+        <p className="badge">
+          {provider} · {model}
+        </p>
         <button type="button" onClick={newChat}>
           New chat
         </button>

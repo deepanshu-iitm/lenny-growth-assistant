@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     demo_user_id: str = "00000000-0000-0000-0000-000000000001"
     demo_user_name: str = "Growth Team"
     data_dir: str = str(REPO_ROOT / "data" / "sample")
+    llm_provider: str = "ollama"
+    chat_model: str = "llama3.2"
 
 
 settings = Settings()
