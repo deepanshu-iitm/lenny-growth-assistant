@@ -1,11 +1,11 @@
 import uuid
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.models import Base, User
+from app.models import Base, Source, User
 
 engine = create_async_engine(settings.database_url)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
@@ -27,6 +27,11 @@ async def init_db() -> None:
         if existing is None:
             db.add(User(id=DEMO_USER_ID, display_name=settings.demo_user_name))
             await db.commit()
+        count = await db.scalar(select(func.count()).select_from(Source))
+        if not count:
+            from app.ingest import ingest_sources
+
+            await ingest_sources(db)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

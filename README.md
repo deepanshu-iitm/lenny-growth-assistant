@@ -59,6 +59,14 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
+After `data/lenny` is cloned, you can start everything with:
+
+```bash
+docker compose up --build
+```
+
+Put `OPENAI_API_KEY` in `backend/.env`. The UI is still [http://localhost:5173](http://localhost:5173). Stop a local uvicorn on port 8000 first.
+
 ## Models
 
 The sidebar toggles **Ollama** and **OpenAI**. That choice lives in memory: if uvicorn reloads, click the provider again.
