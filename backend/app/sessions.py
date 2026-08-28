@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import DEMO_USER_ID, get_db
+from app.llm import write_grounded_answer
 from app.models import ChatSession, Message
 from app.retrieval import answer_from_hits, search_chunks
 
@@ -105,11 +106,12 @@ async def add_message(
 
     user_message = Message(session_id=session.id, role="user", content=content)
     hits = await search_chunks(db, content)
-    answer, citations = answer_from_hits(hits)
+    fallback, citations = answer_from_hits(hits)
+    written = await write_grounded_answer(content, hits)
     assistant_message = Message(
         session_id=session.id,
         role="assistant",
-        content=answer,
+        content=written or fallback,
         citations=citations,
     )
     session.updated_at = datetime.now(timezone.utc)

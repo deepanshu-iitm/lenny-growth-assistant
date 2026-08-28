@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     data_dir: str = str(REPO_ROOT / "data" / "sample")
     llm_provider: str = "ollama"
     chat_model: str = "llama3.2"
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    llm_timeout_seconds: int = 120
 
 
 settings = Settings()
