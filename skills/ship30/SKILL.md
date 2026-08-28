@@ -32,23 +32,24 @@ Start the piece, and every major section, with **one sentence**. Use one of thes
 ## Shape
 
 1. One idea. The whole essay argues one point.
-2. Outline 4–7 key points that actually deliver the headline. If the headline promises 5, there are 5.
-3. Narrative: problem → what they tried → what worked → why it works → what to do on Monday.
-4. End with **one specific takeaway** the reader can use this week. Not a vibe. A move.
+2. Only write sections you can support with the excerpts. If the source names three moves, write three — not six.
+3. Narrative: problem → what they tried (only if the excerpts say they tried it) → what worked → why it works → what to do on Monday.
+4. End with **one specific takeaway** the reader can use this week. Steal it from the source, do not invent a generic audit.
 
 ## Formatting (skimmable)
 
 - Short paragraphs. Prefer the **1/3/1 rhythm**: one sentence, a few sentences, one sentence.
 - Turn lists of examples or steps into **bullets**.
 - Headings every screen or so. Bold only the words that carry the claim.
-- No walls of text. No throat-clearing about “in today’s world.”
+- No walls of text. No “invaluable lessons” or “in today’s world.”
+- The first sentence must be a specific fact or moment from the excerpts, not a thesis about “product managers.”
 
 ## Grounding (non-negotiable)
 
-- Use **only** the transcript excerpts provided.
-- Name guests and source titles when you use a claim.
-- If the excerpts are thin, say so and write a shorter honest piece. Do **not** invent stats, quotes, companies, or outcomes.
-- Do not pad with generic growth advice that is not in the excerpts.
+- Use **only** the transcript excerpts provided. If a claim is not in them, leave it out.
+- Name the guest and source title when you use a claim.
+- Do not add stock growth tactics (UX audits, community, “leverage data,” A/B testing culture) unless that exact idea is in the excerpts.
+- If the excerpts are thin, write a shorter honest piece. Never pad to hit 1,250 words with filler.
 
 ## Output
 

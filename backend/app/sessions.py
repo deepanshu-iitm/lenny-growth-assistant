@@ -11,7 +11,7 @@ from app.db import DEMO_USER_ID, get_db
 from app.essay import topic_query, wants_essay
 from app.llm import write_grounded_answer, write_ship30_essay
 from app.models import ChatSession, Message
-from app.retrieval import answer_from_hits, search_chunks
+from app.retrieval import answer_from_hits, chunks_from_best_source, search_chunks
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -108,6 +108,8 @@ async def add_message(
     user_message = Message(session_id=session.id, role="user", content=content)
     search_text = topic_query(content) if wants_essay(content) else content
     hits = await search_chunks(db, search_text, limit=6 if wants_essay(content) else 4)
+    if wants_essay(content):
+        hits = await chunks_from_best_source(db, hits)
     fallback, citations = answer_from_hits(hits)
     if wants_essay(content):
         written = await write_ship30_essay(search_text, hits)

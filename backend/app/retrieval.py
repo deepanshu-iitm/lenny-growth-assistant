@@ -74,6 +74,22 @@ async def search_chunks(db: AsyncSession, query: str, limit: int = 4) -> list[Ch
     return hits
 
 
+async def chunks_from_best_source(
+    db: AsyncSession, hits: list[Chunk], max_chunks: int = 10
+) -> list[Chunk]:
+    if not hits:
+        return []
+    source_id = hits[0].source_id
+    result = await db.execute(
+        select(Chunk)
+        .options(selectinload(Chunk.source))
+        .where(Chunk.source_id == source_id)
+        .order_by(Chunk.ordinal)
+        .limit(max_chunks)
+    )
+    return list(result.scalars().all())
+
+
 def answer_from_hits(hits: list[Chunk]) -> tuple[str, list[dict]]:
     if not hits:
         return (
@@ -83,12 +99,15 @@ def answer_from_hits(hits: list[Chunk]) -> tuple[str, list[dict]]:
 
     parts = []
     citations = []
+    seen = set()
     for chunk in hits:
         source = chunk.source
         label = source.title
         if source.guest:
             label += f" - {source.guest}"
         parts.append(f"**{label}**\n{chunk.content}")
-        citations.append(citation_from_chunk(chunk))
+        if source.path not in seen:
+            seen.add(source.path)
+            citations.append(citation_from_chunk(chunk))
     text = "Here's what the archive says:\n\n" + "\n\n".join(parts)
     return text, citations
