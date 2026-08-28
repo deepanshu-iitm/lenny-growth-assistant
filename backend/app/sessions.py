@@ -67,6 +67,7 @@ class MessageReply(BaseModel):
     user: MessageOut
     assistant: MessageOut
     artifacts: list[ArtifactOut] = []
+    session_title: str
 
 
 async def _get_owned_session(
@@ -185,6 +186,9 @@ async def add_message(
         citations=citations,
     )
     session.updated_at = datetime.now(timezone.utc)
+    if session.title in ("New chat", ""):
+        line = content.splitlines()[0].strip()
+        session.title = line if len(line) <= 48 else line[:48].rstrip() + "…"
     db.add_all([user_message, assistant_message])
     await db.flush()
     if kind and written:
@@ -202,4 +206,9 @@ async def add_message(
     await db.refresh(assistant_message)
     for item in made:
         await db.refresh(item)
-    return MessageReply(user=user_message, assistant=assistant_message, artifacts=made)
+    return MessageReply(
+        user=user_message,
+        assistant=assistant_message,
+        artifacts=made,
+        session_title=session.title,
+    )

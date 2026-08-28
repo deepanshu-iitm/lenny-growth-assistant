@@ -121,6 +121,18 @@ export default function App() {
     }
     const data = await res.json();
     setMessages((prev) => [...prev, data.user, data.assistant]);
+    if (data.session_title) {
+      setSessions((prev) => {
+        const next = prev.map((session) =>
+          session.id === selectedId
+            ? { ...session, title: data.session_title }
+            : session
+        );
+        const current = next.find((session) => session.id === selectedId);
+        if (!current) return next;
+        return [current, ...next.filter((session) => session.id !== selectedId)];
+      });
+    }
     if (data.artifacts?.length) {
       setArtifacts((prev) => [...prev, ...data.artifacts]);
       setArtifactId(data.artifacts[data.artifacts.length - 1].id);
