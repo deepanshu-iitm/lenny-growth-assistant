@@ -7,10 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.artifacts import make_artifact, title_from_markdown
 from app.db import DEMO_USER_ID, get_db
 from app.essay import topic_query, wants_essay
 from app.llm import write_grounded_answer, write_ship30_essay
-from app.models import ChatSession, Message
+from app.models import Artifact, ChatSession, Message
 from app.retrieval import answer_from_hits, chunks_from_best_source, search_chunks
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -35,8 +36,19 @@ class MessageOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ArtifactOut(BaseModel):
+    id: uuid.UUID
+    kind: str
+    title: str
+    content: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class SessionDetail(SessionOut):
     messages: list[MessageOut] = []
+    artifacts: list[ArtifactOut] = []
 
 
 class SessionCreate(BaseModel):
@@ -50,6 +62,7 @@ class MessageCreate(BaseModel):
 class MessageReply(BaseModel):
     user: MessageOut
     assistant: MessageOut
+    artifacts: list[ArtifactOut] = []
 
 
 async def _get_owned_session(
@@ -91,7 +104,19 @@ async def create_session(body: SessionCreate, db: AsyncSession = Depends(get_db)
 async def get_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     session = await _get_owned_session(session_id, db, load_messages=True)
     session.messages.sort(key=lambda m: m.created_at)
-    return session
+    result = await db.execute(
+        select(Artifact)
+        .where(Artifact.session_id == session.id)
+        .order_by(Artifact.created_at)
+    )
+    return SessionDetail(
+        id=session.id,
+        title=session.title,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        messages=session.messages,
+        artifacts=list(result.scalars().all()),
+    )
 
 
 @router.post("/{session_id}/messages", response_model=MessageReply, status_code=201)
@@ -122,15 +147,34 @@ async def add_message(
             )
     else:
         written = await write_grounded_answer(content, hits)
+    chat_text = written or fallback
+    made = []
+    if wants_essay(content) and written:
+        chat_text = (
+            f"I drafted **{title_from_markdown(written)}** and opened it beside the chat."
+        )
     assistant_message = Message(
         session_id=session.id,
         role="assistant",
-        content=written or fallback,
+        content=chat_text,
         citations=citations,
     )
     session.updated_at = datetime.now(timezone.utc)
     db.add_all([user_message, assistant_message])
+    await db.flush()
+    if wants_essay(content) and written:
+        artifact = make_artifact(
+            session.id,
+            assistant_message.id,
+            "markdown",
+            title_from_markdown(written),
+            written,
+        )
+        db.add(artifact)
+        made.append(artifact)
     await db.commit()
     await db.refresh(user_message)
     await db.refresh(assistant_message)
-    return MessageReply(user=user_message, assistant=assistant_message)
+    for item in made:
+        await db.refresh(item)
+    return MessageReply(user=user_message, assistant=assistant_message, artifacts=made)

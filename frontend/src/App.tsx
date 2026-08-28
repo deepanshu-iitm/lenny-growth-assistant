@@ -1,3 +1,4 @@
+import ArtifactViewer, { Artifact } from "./ArtifactViewer";
 import { FormEvent, useEffect, useState } from "react";
 
 type Session = {
@@ -29,6 +30,8 @@ export default function App() {
   const [provider, setProvider] = useState("ollama");
   const [model, setModel] = useState("llama3.2");
   const [openaiReady, setOpenaiReady] = useState(false);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [artifactId, setArtifactId] = useState<string | null>(null);
 
   function applyConfig(data: {
     provider: string;
@@ -78,6 +81,9 @@ export default function App() {
     }
     const data = await res.json();
     setMessages(data.messages || []);
+    const next = data.artifacts || [];
+    setArtifacts(next);
+    setArtifactId(next.length ? next[next.length - 1].id : null);
   }
 
   async function newChat() {
@@ -94,6 +100,8 @@ export default function App() {
     setSessions((prev) => [session, ...prev]);
     setSelectedId(session.id);
     setMessages([]);
+    setArtifacts([]);
+    setArtifactId(null);
   }
 
   async function send(event: FormEvent) {
@@ -113,6 +121,10 @@ export default function App() {
     }
     const data = await res.json();
     setMessages((prev) => [...prev, data.user, data.assistant]);
+    if (data.artifacts?.length) {
+      setArtifacts((prev) => [...prev, ...data.artifacts]);
+      setArtifactId(data.artifacts[data.artifacts.length - 1].id);
+    }
     setDraft("");
   }
 
@@ -123,11 +135,15 @@ export default function App() {
 
   useEffect(() => {
     if (selectedId) loadChat(selectedId);
-    else setMessages([]);
+    else {
+      setMessages([]);
+      setArtifacts([]);
+      setArtifactId(null);
+    }
   }, [selectedId]);
 
   return (
-    <div className="shell">
+    <div className={selectedId ? "shell with-viewer" : "shell"}>
       <aside>
         <p className="brand">Lenny Growth Assistant</p>
         <p className="badge">
@@ -210,6 +226,13 @@ export default function App() {
           </>
         )}
       </main>
+      {selectedId && (
+        <ArtifactViewer
+          artifacts={artifacts}
+          selectedId={artifactId}
+          onSelect={setArtifactId}
+        />
+      )}
     </div>
   );
 }
