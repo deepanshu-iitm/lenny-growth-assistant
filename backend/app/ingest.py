@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import date
 from pathlib import Path
 
 from sqlalchemy import delete, func, select
@@ -8,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.chunking import chunk_markdown
 from app.config import settings
 from app.models import Chunk, Source
+
+SKIP_NAMES = {"license.md", "readme.md"}
 
 
 def _checksum(text: str) -> str:
@@ -29,16 +32,40 @@ def _source_type(relative: Path) -> str:
     return "podcast"
 
 
+def _parse_date(value) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _index_rows(data) -> list[dict]:
+    if isinstance(data, list):
+        return list(data)
+    if not isinstance(data, dict):
+        return []
+    rows = []
+    for kind, key in (("podcast", "podcasts"), ("newsletter", "newsletters")):
+        for row in data.get(key) or []:
+            item = dict(row)
+            item.setdefault("source_type", kind)
+            item.setdefault("path", item.get("filename"))
+            rows.append(item)
+    return rows
+
+
 def _load_index(root: Path) -> dict:
     index_path = root / "index.json"
     if not index_path.exists():
         return {}
     data = json.loads(index_path.read_text(encoding="utf-8"))
     by_path = {}
-    for row in data:
-        rel = row.get("path")
+    for row in _index_rows(data):
+        rel = (row.get("path") or "").replace("\\", "/")
         if rel:
-            by_path[rel.replace("\\", "/")] = row
+            by_path[rel] = row
     return by_path
 
 
@@ -68,6 +95,8 @@ async def ingest_sources(db: AsyncSession) -> dict:
     chunks_written = 0
 
     for path in sorted(root.rglob("*.md")):
+        if path.name.lower() in SKIP_NAMES:
+            continue
         relative = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         checksum = _checksum(text)
@@ -89,11 +118,13 @@ async def ingest_sources(db: AsyncSession) -> dict:
         title = meta.get("title") or _title_from_markdown(path, text)
         guest = meta.get("guest")
         source_type = meta.get("source_type") or _source_type(path.relative_to(root))
+        published_at = _parse_date(meta.get("date") or meta.get("published_at"))
 
         if existing:
             existing.title = title
             existing.guest = guest
             existing.source_type = source_type
+            existing.published_at = published_at
             existing.checksum = checksum
             existing.content = text
             source = existing
@@ -103,6 +134,7 @@ async def ingest_sources(db: AsyncSession) -> dict:
                 source_type=source_type,
                 title=title,
                 guest=guest,
+                published_at=published_at,
                 path=relative,
                 checksum=checksum,
                 content=text,
