@@ -13,21 +13,26 @@ type Props = {
   onSelect: (id: string) => void;
 };
 
+function kindLabel(kind: string) {
+  if (kind === "html") return "HTML";
+  if (kind === "markdown") return "Essay";
+  return kind;
+}
+
 export default function ArtifactViewer({ artifacts, selectedId, onSelect }: Props) {
   const current = artifacts.find((item) => item.id === selectedId) || artifacts[artifacts.length - 1];
 
   if (!current) {
-    return (
-      <section className="viewer" aria-label="Artifact viewer">
-        <p className="empty">Essays and HTML open here, beside the chat.</p>
-      </section>
-    );
+    return null;
   }
 
   return (
     <section className="viewer" aria-label="Artifact viewer">
       <header>
-        <p className="who">{current.kind}</p>
+        <div className="viewer-heading">
+          <p className="kind-pill">{kindLabel(current.kind)}</p>
+          <p className="viewer-note">Sandboxed · no scripts</p>
+        </div>
         <h2>{current.title}</h2>
         {artifacts.length > 1 && (
           <ul className="tabs">
@@ -38,30 +43,28 @@ export default function ArtifactViewer({ artifacts, selectedId, onSelect }: Prop
                   className={item.id === current.id ? "active" : ""}
                   onClick={() => onSelect(item.id)}
                 >
-                  {item.title}
+                  {kindLabel(item.kind)} · {item.title}
                 </button>
               </li>
             ))}
           </ul>
         )}
       </header>
-      {current.kind === "html" ? (
-        <iframe
-          className="html-frame"
-          title={current.title}
-          sandbox=""
-          srcDoc={current.content}
-        />
-      ) : (
-        <div
-          className="md"
-          dangerouslySetInnerHTML={{ __html: markdownToHtml(current.content) }}
-        />
-      )}
-      <p className="hint">
-        HTML runs in a sandbox with no scripts, forms, or same-origin access.
-        Markdown is escaped before it is rendered.
-      </p>
+      <div className="viewer-body">
+        {current.kind === "html" ? (
+          <iframe
+            className="html-frame"
+            title={current.title}
+            sandbox=""
+            srcDoc={current.content}
+          />
+        ) : (
+          <div
+            className="md paper"
+            dangerouslySetInnerHTML={{ __html: markdownToHtml(current.content) }}
+          />
+        )}
+      </div>
     </section>
   );
 }
