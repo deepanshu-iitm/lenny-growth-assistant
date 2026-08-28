@@ -12,7 +12,11 @@ from app.db import DEMO_USER_ID, get_db
 from app.essay import topic_query, wants_essay, wants_html
 from app.llm import write_grounded_answer, write_html_onepager, write_ship30_essay
 from app.models import Artifact, ChatSession, Message
-from app.retrieval import answer_from_hits, chunks_from_best_source, search_chunks
+from app.retrieval import (
+    answer_from_hits,
+    chunks_from_best_source,
+    search_chunks,
+)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -125,14 +129,20 @@ async def add_message(
     body: MessageCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    session = await _get_owned_session(session_id, db)
+    session = await _get_owned_session(session_id, db, load_messages=True)
     content = body.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
+    prior = sorted(session.messages, key=lambda m: m.created_at)
+    history = [(m.role, m.content) for m in prior]
+    last_user = next((m.content for m in reversed(prior) if m.role == "user"), None)
+
     user_message = Message(session_id=session.id, role="user", content=content)
     special = wants_essay(content) or wants_html(content)
     search_text = topic_query(content) if special else content
+    if last_user:
+        search_text = f"{last_user} {search_text}"
     hits = await search_chunks(db, search_text, limit=6 if special else 4)
     if special:
         hits = await chunks_from_best_source(db, hits)
@@ -141,7 +151,7 @@ async def add_message(
     kind = None
     if wants_essay(content):
         kind = "markdown"
-        written = await write_ship30_essay(search_text, hits)
+        written = await write_ship30_essay(search_text, hits, history)
         if written is None and hits:
             fallback = (
                 "I couldn't reach the model to draft the Ship 30 essay. "
@@ -158,7 +168,7 @@ async def add_message(
                 "Select OpenAI (or start Ollama) and try again."
             )
     else:
-        written = await write_grounded_answer(content, hits)
+        written = await write_grounded_answer(content, hits, history)
     chat_text = written or fallback
     made = []
     title = ""

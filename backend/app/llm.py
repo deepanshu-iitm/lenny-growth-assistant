@@ -23,8 +23,19 @@ def _context(hits: list[Chunk]) -> str:
     return "\n\n---\n\n".join(blocks)
 
 
-def _user_prompt(question: str, hits: list[Chunk]) -> str:
-    return f"{PROMPT}\n\nExcerpts:\n{_context(hits)}\n\nQuestion: {question}\n"
+def _user_prompt(question: str, hits: list[Chunk], history: list[tuple[str, str]] | None = None) -> str:
+    parts = [PROMPT]
+    if history:
+        lines = []
+        for role, text in history[-8:]:
+            lines.append(f"{role}: {text[:500]}")
+        parts.append(
+            "Earlier in this chat (the new question may refer to it). "
+            "Still use ONLY the excerpts for facts.\n" + "\n".join(lines)
+        )
+    parts.append(f"Excerpts:\n{_context(hits)}")
+    parts.append(f"Question: {question}")
+    return "\n\n".join(parts)
 
 
 async def _ollama(prompt: str) -> str | None:
@@ -84,10 +95,14 @@ async def complete(
     return None
 
 
-async def write_grounded_answer(question: str, hits: list[Chunk]) -> str | None:
+async def write_grounded_answer(
+    question: str,
+    hits: list[Chunk],
+    history: list[tuple[str, str]] | None = None,
+) -> str | None:
     if not hits:
         return None
-    return await complete(_user_prompt(question, hits))
+    return await complete(_user_prompt(question, hits, history))
 
 
 def load_skill(name: str) -> str:
@@ -97,12 +112,20 @@ def load_skill(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-async def write_ship30_essay(topic: str, hits: list[Chunk]) -> str | None:
+async def write_ship30_essay(
+    topic: str, hits: list[Chunk], history: list[tuple[str, str]] | None = None
+) -> str | None:
     if not hits:
         return None
     skill = load_skill("ship30")
+    prior = ""
+    if history:
+        prior = "Chat so far (topic may be implied):\n" + "\n".join(
+            f"{role}: {text[:400]}" for role, text in history[-6:]
+        )
+        prior += "\n\n"
     prompt = (
-        f"{skill}\n\n---\n\nTranscript excerpts:\n{_context(hits)}\n\n"
+        f"{skill}\n\n---\n\n{prior}Transcript excerpts:\n{_context(hits)}\n\n"
         f"Write the essay on: {topic}\n"
     )
     return await complete(prompt, temperature=0.2, max_tokens=2800)
