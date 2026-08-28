@@ -1,0 +1,138 @@
+:root {
+  font-family: Georgia, "Times New Roman", serif;
+  color: #1c1915;
+  background: #f6f1e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+aside {
+  padding: 20px 16px;
+  border-right: 1px solid #e4d9c8;
+  background: #fffbf5;
+}
+
+.brand {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+}
+
+aside > button {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #c45c26;
+  background: #c45c26;
+  color: #fffbf5;
+}
+
+ul {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+aside li button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+aside li button.active {
+  background: #f0e6d6;
+}
+
+.error {
+  color: #9b2c2c;
+  font-size: 0.9rem;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0;
+  color: #1c1915;
+}
+
+.empty {
+  padding: 40px;
+  color: #5c564c;
+}
+
+.thread {
+  flex: 1;
+  overflow: auto;
+  padding: 24px 32px;
+}
+
+article {
+  max-width: 720px;
+  margin-bottom: 20px;
+}
+
+.who {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  color: #5c564c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.body {
+  white-space: pre-wrap;
+}
+
+.cites {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  color: #2f5d50;
+}
+
+form {
+  display: flex;
+  gap: 8px;
+  padding: 16px 32px 24px;
+  border-top: 1px solid #e4d9c8;
+  background: #fffbf5;
+}
+
+textarea {
+  flex: 1;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid #e4d9c8;
+  background: #fff;
+  resize: vertical;
+}
+
+form button {
+  align-self: flex-end;
+  padding: 8px 14px;
+  border: 1px solid #c45c26;
+  background: #c45c26;
+  color: #fffbf5;
+}
+
+form button:disabled {
+  opacity: 0.6;
+}
