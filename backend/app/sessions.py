@@ -7,10 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.artifacts import make_artifact, title_from_markdown
+from app.artifacts import make_artifact, title_from_html, title_from_markdown
 from app.db import DEMO_USER_ID, get_db
-from app.essay import topic_query, wants_essay
-from app.llm import write_grounded_answer, write_ship30_essay
+from app.essay import topic_query, wants_essay, wants_html
+from app.llm import write_grounded_answer, write_html_onepager, write_ship30_essay
 from app.models import Artifact, ChatSession, Message
 from app.retrieval import answer_from_hits, chunks_from_best_source, search_chunks
 
@@ -131,12 +131,16 @@ async def add_message(
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     user_message = Message(session_id=session.id, role="user", content=content)
-    search_text = topic_query(content) if wants_essay(content) else content
-    hits = await search_chunks(db, search_text, limit=6 if wants_essay(content) else 4)
-    if wants_essay(content):
+    special = wants_essay(content) or wants_html(content)
+    search_text = topic_query(content) if special else content
+    hits = await search_chunks(db, search_text, limit=6 if special else 4)
+    if special:
         hits = await chunks_from_best_source(db, hits)
     fallback, citations = answer_from_hits(hits)
+    written = None
+    kind = None
     if wants_essay(content):
+        kind = "markdown"
         written = await write_ship30_essay(search_text, hits)
         if written is None and hits:
             fallback = (
@@ -145,14 +149,25 @@ async def add_message(
                 "Here is the source material I would have used:\n\n"
                 + fallback
             )
+    elif wants_html(content):
+        kind = "html"
+        written = await write_html_onepager(search_text, hits)
+        if written is None and hits:
+            fallback = (
+                "I couldn't reach the model to build the HTML one-pager. "
+                "Select OpenAI (or start Ollama) and try again."
+            )
     else:
         written = await write_grounded_answer(content, hits)
     chat_text = written or fallback
     made = []
-    if wants_essay(content) and written:
-        chat_text = (
-            f"I drafted **{title_from_markdown(written)}** and opened it beside the chat."
-        )
+    title = ""
+    if kind == "markdown" and written:
+        title = title_from_markdown(written)
+        chat_text = f"I drafted **{title}** and opened it beside the chat."
+    elif kind == "html" and written:
+        title = title_from_html(written)
+        chat_text = f"I built **{title}** as an HTML one-pager and opened it beside the chat."
     assistant_message = Message(
         session_id=session.id,
         role="assistant",
@@ -162,12 +177,12 @@ async def add_message(
     session.updated_at = datetime.now(timezone.utc)
     db.add_all([user_message, assistant_message])
     await db.flush()
-    if wants_essay(content) and written:
+    if kind and written:
         artifact = make_artifact(
             session.id,
             assistant_message.id,
-            "markdown",
-            title_from_markdown(written),
+            kind,
+            title,
             written,
         )
         db.add(artifact)

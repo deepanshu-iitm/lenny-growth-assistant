@@ -106,3 +106,14 @@ async def write_ship30_essay(topic: str, hits: list[Chunk]) -> str | None:
         f"Write the essay on: {topic}\n"
     )
     return await complete(prompt, temperature=0.2, max_tokens=2800)
+
+
+async def write_html_onepager(topic: str, hits: list[Chunk]) -> str | None:
+    if not hits:
+        return None
+    skill = load_skill("artifacts")
+    prompt = (
+        f"{skill}\n\n---\n\nTranscript excerpts:\n{_context(hits)}\n\n"
+        f"Build the one-pager about: {topic}\n"
+    )
+    return await complete(prompt, temperature=0.2, max_tokens=2500)

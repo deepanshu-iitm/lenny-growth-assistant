@@ -19,9 +19,26 @@ def wants_essay(text: str) -> bool:
     )
 
 
+HTML_MARKERS = (
+    "html",
+    "one-pager",
+    "one pager",
+    "onepager",
+    "landing page",
+    "web page",
+)
+
+
+def wants_html(text: str) -> bool:
+    lowered = text.lower()
+    if wants_essay(text):
+        return False
+    return any(marker in lowered for marker in HTML_MARKERS)
+
+
 def topic_query(text: str) -> str:
     cleaned = text
-    for marker in ESSAY_MARKERS:
+    for marker in ESSAY_MARKERS + HTML_MARKERS:
         cleaned = re.sub(re.escape(marker), " ", cleaned, flags=re.I)
     cleaned = re.sub(r"\bessay\b", " ", cleaned, flags=re.I)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" :-")
