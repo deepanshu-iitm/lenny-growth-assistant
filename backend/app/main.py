@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from pydantic import BaseModel, Field
+
 from app.admin import router as admin_router
 from app.config import settings
 from app.db import init_db, ping_db
@@ -41,9 +43,24 @@ async def ready():
     return {"status": "ok", "database": "up"}
 
 
-@app.get("/config")
-def config():
+def _public_config():
     return {
         "provider": settings.llm_provider,
-        "chat_model": settings.chat_model,
+        "chat_model": settings.active_model(),
+        "openai_configured": bool(settings.openai_api_key.strip()),
     }
+
+
+@app.get("/config")
+def config():
+    return _public_config()
+
+
+class ConfigUpdate(BaseModel):
+    provider: str = Field(pattern="^(openai|ollama)$")
+
+
+@app.post("/config")
+def set_config(body: ConfigUpdate):
+    settings.llm_provider = body.provider
+    return _public_config()

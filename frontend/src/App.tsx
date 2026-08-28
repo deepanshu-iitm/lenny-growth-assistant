@@ -28,6 +28,36 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState("ollama");
   const [model, setModel] = useState("llama3.2");
+  const [openaiReady, setOpenaiReady] = useState(false);
+
+  function applyConfig(data: {
+    provider: string;
+    chat_model: string;
+    openai_configured?: boolean;
+  }) {
+    setProvider(data.provider);
+    setModel(data.chat_model);
+    setOpenaiReady(Boolean(data.openai_configured));
+  }
+
+  async function loadConfig() {
+    const res = await fetch("/config");
+    if (!res.ok) return;
+    applyConfig(await res.json());
+  }
+
+  async function chooseProvider(next: string) {
+    const res = await fetch("/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: next }),
+    });
+    if (!res.ok) {
+      setError("Could not switch model provider");
+      return;
+    }
+    applyConfig(await res.json());
+  }
 
   async function loadSessions() {
     try {
@@ -88,14 +118,7 @@ export default function App() {
 
   useEffect(() => {
     loadSessions();
-    fetch("/config")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setProvider(data.provider);
-        setModel(data.chat_model);
-      })
-      .catch(() => {});
+    loadConfig().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -110,6 +133,25 @@ export default function App() {
         <p className="badge">
           {provider} · {model}
         </p>
+        <div className="providers">
+          <button
+            type="button"
+            className={provider === "ollama" ? "on" : ""}
+            onClick={() => chooseProvider("ollama")}
+          >
+            Ollama
+          </button>
+          <button
+            type="button"
+            className={provider === "openai" ? "on" : ""}
+            onClick={() => chooseProvider("openai")}
+          >
+            OpenAI
+          </button>
+        </div>
+        {provider === "openai" && !openaiReady && (
+          <p className="hint">No OpenAI key set. Answers will use transcript snippets.</p>
+        )}
         <button type="button" onClick={newChat}>
           New chat
         </button>

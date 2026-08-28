@@ -19,7 +19,15 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"
     chat_model: str = "llama3.2"
     ollama_base_url: str = "http://127.0.0.1:11434"
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_model: str = "gpt-4o-mini"
     llm_timeout_seconds: int = 120
+
+    def active_model(self) -> str:
+        if self.llm_provider == "openai":
+            return self.openai_model
+        return self.chat_model
 
 
 settings = Settings()
