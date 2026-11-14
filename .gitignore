@@ -10,4 +10,8 @@ dist/
 Thumbs.db
 data/lenny/
 backend/.runtime.json
-config.bat
+
+.env
+.env.*
+!.env.example
+.vscode/
